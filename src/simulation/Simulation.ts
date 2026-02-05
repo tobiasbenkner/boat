@@ -1,10 +1,10 @@
-import * as THREE from 'three';
-import { Ocean } from './Ocean';
-import { OceanMesh } from './OceanMesh';
-import { Boat } from './Boat';
-import { BoatPhysics } from './BoatPhysics';
-import { Island } from './Island';
-import type { WavePreset, BoatTelemetry, TelemetryCallback } from './types';
+import * as THREE from "three";
+import { Ocean } from "./Ocean";
+import { OceanMesh } from "./OceanMesh";
+import { Boat } from "./Boat";
+import { BoatPhysics } from "./BoatPhysics";
+import { Island } from "./Island";
+import type { WavePreset, BoatTelemetry, TelemetryCallback } from "./types";
 
 /**
  * Main simulation controller.
@@ -29,14 +29,14 @@ export class Simulation {
   private telemetryInterval: number | null = null;
   private telemetryCallback: TelemetryCallback | null = null;
 
-  private currentPreset: WavePreset = 'moderate';
+  private currentPreset: WavePreset = "moderate";
 
   // Gun aiming control
-  private gunYaw: number = 0;      // Left/right rotation
-  private gunPitch: number = 0;    // Up/down rotation
-  private readonly gunTurnSpeed = 0.02;
-  private readonly gunPitchLimit = Math.PI / 6;  // 30 degrees up/down
-  private readonly gunYawLimit = Math.PI / 3;    // 60 degrees left/right
+  private gunYaw: number = 0; // Left/right rotation
+  private gunPitch: number = 0; // Up/down rotation
+  private readonly gunTurnSpeed = 0.008;
+  private readonly gunPitchLimit = Math.PI / 6; // 30 degrees up/down
+  private readonly gunYawLimit = Math.PI / 3; // 60 degrees left/right
   private keysPressed: Set<string> = new Set();
 
   constructor(container: HTMLElement) {
@@ -52,18 +52,13 @@ export class Simulation {
       60,
       container.clientWidth / container.clientHeight,
       0.1,
-      1000
+      1000,
     );
     this.camera.position.set(-18, 10, -18);
     this.camera.lookAt(0, 0, 0);
 
     // Gun sight camera (narrow FOV for zoom effect)
-    this.gunCamera = new THREE.PerspectiveCamera(
-      25,
-      1,
-      0.1,
-      500
-    );
+    this.gunCamera = new THREE.PerspectiveCamera(25, 1, 0.1, 500);
 
     // Renderer setup
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -90,15 +85,15 @@ export class Simulation {
     this.boat = new Boat();
     this.scene.add(this.boat.group);
 
-    // Attach gun camera to boat
-    // Position: on cabin roof at gun sight position
-    this.gunCamera.position.set(0, 2.2, -0.8);
-    this.boat.group.add(this.gunCamera);
+    // Attach gun camera to gun mount at muzzle tip
+    // Muzzle is at (0, 1.2, 3.6) in gunMount space, place camera slightly ahead
+    this.gunCamera.position.set(0, 1.2, 3.9);
+    // Camera looks at -Z by default, rotate 180° to look along barrel (+Z)
+    this.gunCamera.rotation.set(0, Math.PI, 0);
+    this.boat.gunMount.add(this.gunCamera);
 
     // Initial gun direction: toward island (25, 25) from origin
-    // Camera looks in -Z by default, rotate to face island direction
-    // Direction to island is (+X, +Z), need to rotate -135° from -Z
-    this.gunYaw = -Math.PI * 3 / 4;
+    this.gunYaw = (-Math.PI * 3) / 4;
     this.updateGunRotation();
 
     // Physics
@@ -109,11 +104,11 @@ export class Simulation {
     this.clock = new THREE.Clock();
 
     // Handle resize
-    window.addEventListener('resize', this.onResize.bind(this));
+    window.addEventListener("resize", this.onResize.bind(this));
 
     // Keyboard controls for gun
-    window.addEventListener('keydown', this.onKeyDown.bind(this));
-    window.addEventListener('keyup', this.onKeyUp.bind(this));
+    window.addEventListener("keydown", this.onKeyDown.bind(this));
+    window.addEventListener("keyup", this.onKeyUp.bind(this));
   }
 
   private onKeyDown(event: KeyboardEvent): void {
@@ -126,33 +121,38 @@ export class Simulation {
 
   private updateGunControls(): void {
     // Arrow keys control gun direction
-    if (this.keysPressed.has('ArrowLeft')) {
+    if (this.keysPressed.has("ArrowLeft")) {
       this.gunYaw += this.gunTurnSpeed;
     }
-    if (this.keysPressed.has('ArrowRight')) {
+    if (this.keysPressed.has("ArrowRight")) {
       this.gunYaw -= this.gunTurnSpeed;
     }
-    if (this.keysPressed.has('ArrowUp')) {
+    if (this.keysPressed.has("ArrowUp")) {
       this.gunPitch += this.gunTurnSpeed;
     }
-    if (this.keysPressed.has('ArrowDown')) {
+    if (this.keysPressed.has("ArrowDown")) {
       this.gunPitch -= this.gunTurnSpeed;
     }
 
     // Clamp values
-    this.gunPitch = THREE.MathUtils.clamp(this.gunPitch, -this.gunPitchLimit, this.gunPitchLimit);
+    this.gunPitch = THREE.MathUtils.clamp(
+      this.gunPitch,
+      -this.gunPitchLimit,
+      this.gunPitchLimit,
+    );
 
     this.updateGunRotation();
   }
 
   private updateGunRotation(): void {
-    // Apply rotation to gun camera (YXZ order: yaw first, then pitch)
-    this.gunCamera.rotation.set(this.gunPitch, this.gunYaw, 0, 'YXZ');
-
-    // Rotate the gun model to match camera direction
-    // Gun barrel points in +Z, camera looks at -Z, so offset by PI
-    // Also apply pitch to the gun model
-    this.boat.gunMount.rotation.set(this.gunPitch, this.gunYaw + Math.PI, 0, 'YXZ');
+    // Rotate the gun mount (camera is attached to it and inherits rotation)
+    // Gun barrel points in +Z, so offset yaw by PI to match target direction
+    this.boat.gunMount.rotation.set(
+      this.gunPitch,
+      this.gunYaw + Math.PI,
+      0,
+      "YXZ",
+    );
   }
 
   private setupLighting(): void {
@@ -292,8 +292,8 @@ export class Simulation {
 
   dispose(): void {
     this.stop();
-    window.removeEventListener('keydown', this.onKeyDown.bind(this));
-    window.removeEventListener('keyup', this.onKeyUp.bind(this));
+    window.removeEventListener("keydown", this.onKeyDown.bind(this));
+    window.removeEventListener("keyup", this.onKeyUp.bind(this));
     this.oceanMesh.dispose();
     this.boat.dispose();
     this.island.dispose();
