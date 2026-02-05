@@ -1,0 +1,435 @@
+---
+---
+
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Boot auf Wasser - Simulation</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      html, body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        font-family: system-ui, -apple-system, sans-serif;
+      }
+
+      #canvas-container {
+        width: 100%;
+        height: 100%;
+        position: relative;
+      }
+
+      #ui-panel {
+        position: absolute;
+        top: 16px;
+        left: 16px;
+        background: rgba(0, 0, 0, 0.7);
+        color: white;
+        padding: 16px;
+        border-radius: 8px;
+        min-width: 240px;
+        backdrop-filter: blur(8px);
+      }
+
+      #ui-panel h2 {
+        font-size: 14px;
+        font-weight: 600;
+        margin-bottom: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: #88ccff;
+      }
+
+      .control-group {
+        margin-bottom: 16px;
+      }
+
+      .control-group label {
+        display: block;
+        font-size: 12px;
+        margin-bottom: 6px;
+        color: #aaa;
+      }
+
+      #wave-select {
+        width: 100%;
+        padding: 8px 12px;
+        border: none;
+        border-radius: 4px;
+        background: #333;
+        color: white;
+        font-size: 14px;
+        cursor: pointer;
+      }
+
+      #wave-select:hover {
+        background: #444;
+      }
+
+      #telemetry {
+        font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+        font-size: 11px;
+        line-height: 1.6;
+      }
+
+      .telemetry-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 2px 0;
+      }
+
+      .telemetry-label {
+        color: #888;
+      }
+
+      .telemetry-value {
+        color: #4fc3f7;
+        min-width: 120px;
+        text-align: right;
+      }
+
+      .section-divider {
+        border-top: 1px solid #444;
+        margin: 8px 0;
+      }
+
+      #reset-btn {
+        width: 100%;
+        padding: 8px;
+        background: #1e5799;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+        margin-top: 8px;
+      }
+
+      #reset-btn:hover {
+        background: #2a6ab5;
+      }
+
+      /* Gun sight frame - only border, transparent center */
+      #gun-sight-frame {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        width: min(320px, 37vw);
+        height: min(360px, 42vw);
+        border-radius: 12px;
+        padding: 10px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+        border: 3px solid #222;
+        pointer-events: none;
+      }
+
+      #gun-sight-frame::before {
+        content: 'ZIELOPTIK MK-IV';
+        position: absolute;
+        top: -2px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: #111;
+        padding: 2px 12px;
+        font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+        font-size: 9px;
+        color: #0f0;
+        letter-spacing: 2px;
+        border: 2px solid #333;
+        border-radius: 4px;
+        z-index: 30;
+      }
+
+      /* Gun sight overlay - transparent center for Three.js */
+      #gun-sight {
+        position: relative;
+        width: 100%;
+        aspect-ratio: 1;
+        pointer-events: none;
+        border: 4px solid #0a0a0a;
+        border-radius: 50%;
+        box-shadow:
+          0 0 0 2px rgba(0, 255, 0, 0.3),
+          0 0 20px rgba(0, 0, 0, 0.8);
+        overflow: hidden;
+      }
+
+      /* Scope vignette effect - dark edges, transparent center */
+      #gun-sight::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: radial-gradient(
+          circle at center,
+          transparent 0%,
+          transparent 55%,
+          rgba(0, 0, 0, 0.5) 75%,
+          rgba(0, 0, 0, 0.9) 100%
+        );
+        pointer-events: none;
+        z-index: 15;
+        border-radius: 50%;
+      }
+
+      /* Crosshair lines */
+      .crosshair-h, .crosshair-v {
+        position: absolute;
+        background: rgba(0, 255, 0, 0.8);
+        z-index: 20;
+      }
+
+      .crosshair-h {
+        width: 100%;
+        height: 1px;
+        top: 50%;
+        left: 0;
+        transform: translateY(-50%);
+      }
+
+      .crosshair-v {
+        width: 1px;
+        height: 100%;
+        left: 50%;
+        top: 0;
+        transform: translateX(-50%);
+      }
+
+      /* Center dot */
+      #crosshair-center {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 6px;
+        height: 6px;
+        background: rgba(255, 50, 50, 1);
+        border-radius: 50%;
+        box-shadow: 0 0 6px rgba(255, 0, 0, 0.9);
+        z-index: 20;
+      }
+
+      /* Range marks */
+      .range-mark {
+        position: absolute;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 16px;
+        height: 1px;
+        background: rgba(0, 255, 0, 0.5);
+        z-index: 20;
+      }
+
+      .range-mark:nth-child(4) { top: 35%; }
+      .range-mark:nth-child(5) { top: 65%; }
+
+      /* Distance readout */
+      #sight-distance {
+        position: absolute;
+        top: 12px;
+        left: 50%;
+        transform: translateX(-50%);
+        color: rgba(0, 255, 0, 0.9);
+        font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+        font-size: 12px;
+        font-weight: bold;
+        text-shadow: 0 0 4px rgba(0, 255, 0, 0.5);
+        z-index: 20;
+      }
+
+      /* Status indicators below scope */
+      #sight-status {
+        position: absolute;
+        bottom: 3px;
+        left: 3px;
+        right: 3px;
+        height: 36px;
+        background: rgba(17, 17, 17, 0.95);
+        border-top: 1px solid #333;
+        border-radius: 0 0 6px 6px;
+        display: flex;
+        justify-content: space-around;
+        align-items: center;
+        padding: 0 10px;
+      }
+
+      .status-item {
+        font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+        font-size: 9px;
+        color: #0f0;
+        text-align: center;
+      }
+
+      .status-item span {
+        display: block;
+        color: #666;
+        font-size: 7px;
+        text-transform: uppercase;
+        margin-bottom: 2px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="canvas-container"></div>
+
+    <!-- Gun sight with frame -->
+    <div id="gun-sight-frame">
+      <div id="gun-sight">
+        <div class="crosshair-h"></div>
+        <div class="crosshair-v"></div>
+        <div id="crosshair-center"></div>
+        <div class="range-mark"></div>
+        <div class="range-mark"></div>
+        <span id="sight-distance">35.4m</span>
+      </div>
+      <div id="sight-status">
+        <div class="status-item">
+          <span>Status</span>
+          BEREIT
+        </div>
+        <div class="status-item">
+          <span>Ziel</span>
+          PALME
+        </div>
+        <div class="status-item">
+          <span>Modus</span>
+          MANUELL
+        </div>
+      </div>
+    </div>
+
+    <div id="ui-panel">
+      <h2>Wellensteuerung</h2>
+
+      <div class="control-group">
+        <label for="wave-select">Wellenstärke</label>
+        <select id="wave-select">
+          <option value="calm">Calm - Ruhig</option>
+          <option value="moderate" selected>Moderate - Mäßig</option>
+          <option value="rough">Rough - Rau</option>
+          <option value="storm">Storm - Sturm</option>
+        </select>
+      </div>
+
+      <div class="section-divider"></div>
+
+      <h2>Telemetrie (50ms)</h2>
+
+      <div id="telemetry">
+        <div class="telemetry-row">
+          <span class="telemetry-label">Position X:</span>
+          <span class="telemetry-value" id="pos-x">0.00 m</span>
+        </div>
+        <div class="telemetry-row">
+          <span class="telemetry-label">Position Y:</span>
+          <span class="telemetry-value" id="pos-y">0.00 m</span>
+        </div>
+        <div class="telemetry-row">
+          <span class="telemetry-label">Position Z:</span>
+          <span class="telemetry-value" id="pos-z">0.00 m</span>
+        </div>
+
+        <div class="section-divider"></div>
+
+        <div class="telemetry-row">
+          <span class="telemetry-label">Roll:</span>
+          <span class="telemetry-value" id="rot-roll">0.00°</span>
+        </div>
+        <div class="telemetry-row">
+          <span class="telemetry-label">Pitch:</span>
+          <span class="telemetry-value" id="rot-pitch">0.00°</span>
+        </div>
+        <div class="telemetry-row">
+          <span class="telemetry-label">Yaw:</span>
+          <span class="telemetry-value" id="rot-yaw">0.00°</span>
+        </div>
+
+        <div class="section-divider"></div>
+
+        <div class="telemetry-row">
+          <span class="telemetry-label">Velocity:</span>
+          <span class="telemetry-value" id="velocity">0.00 m/s</span>
+        </div>
+      </div>
+
+      <button id="reset-btn">Boot zurücksetzen</button>
+    </div>
+
+    <script>
+      import { Simulation } from '../simulation/Simulation';
+      import type { BoatTelemetry, WavePreset } from '../simulation/types';
+
+      // Initialize simulation when DOM is ready
+      document.addEventListener('DOMContentLoaded', () => {
+        const container = document.getElementById('canvas-container');
+        if (!container) return;
+
+        const simulation = new Simulation(container);
+        simulation.start();
+
+        // Wave preset selector
+        const waveSelect = document.getElementById('wave-select') as HTMLSelectElement;
+        waveSelect.addEventListener('change', () => {
+          simulation.setWavePreset(waveSelect.value as WavePreset);
+        });
+
+        // Reset button
+        const resetBtn = document.getElementById('reset-btn');
+        resetBtn?.addEventListener('click', () => {
+          simulation.resetBoat();
+        });
+
+        // Telemetry display
+        const posX = document.getElementById('pos-x');
+        const posY = document.getElementById('pos-y');
+        const posZ = document.getElementById('pos-z');
+        const rotRoll = document.getElementById('rot-roll');
+        const rotPitch = document.getElementById('rot-pitch');
+        const rotYaw = document.getElementById('rot-yaw');
+        const velocity = document.getElementById('velocity');
+        const sightDistance = document.getElementById('sight-distance');
+
+        // Island position for distance calculation
+        const islandX = 25;
+        const islandZ = 25;
+
+        simulation.onTelemetry((telemetry: BoatTelemetry) => {
+          if (posX) posX.textContent = `${telemetry.position.x.toFixed(2)} m`;
+          if (posY) posY.textContent = `${telemetry.position.y.toFixed(2)} m`;
+          if (posZ) posZ.textContent = `${telemetry.position.z.toFixed(2)} m`;
+
+          if (rotRoll) rotRoll.textContent = `${telemetry.rotation.roll.toFixed(2)}°`;
+          if (rotPitch) rotPitch.textContent = `${telemetry.rotation.pitch.toFixed(2)}°`;
+          if (rotYaw) rotYaw.textContent = `${telemetry.rotation.yaw.toFixed(2)}°`;
+
+          const vel = Math.sqrt(
+            telemetry.velocity.x ** 2 +
+            telemetry.velocity.y ** 2 +
+            telemetry.velocity.z ** 2
+          );
+          if (velocity) velocity.textContent = `${vel.toFixed(2)} m/s`;
+
+          // Calculate distance to island for gun sight
+          const dx = islandX - telemetry.position.x;
+          const dz = islandZ - telemetry.position.z;
+          const distance = Math.sqrt(dx * dx + dz * dz);
+          if (sightDistance) sightDistance.textContent = `${distance.toFixed(1)}m`;
+        });
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+          simulation.dispose();
+        });
+      });
+    </script>
+  </body>
+</html>

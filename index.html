@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Realistische Ozeansimulation mit Boot</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="info">
+        <div id="title">🌊 Ozeansimulation mit Boot</div>
+        <div id="stats">
+            <div>Boot Position: <span id="pos">0, 0, 0</span></div>
+            <div>Boot Rotation: <span id="rot">0, 0, 0</span></div>
+            <div>Geschwindigkeit: <span id="vel">0 m/s</span></div>
+            <div>FPS: <span id="fps">0</span></div>
+        </div>
+        <div id="controls">
+            <button onclick="toggleWireframe()">Wireframe</button>
+            <button onclick="toggleAutoRotate()">Auto-Rotate</button>
+            <button onclick="resetBoat()">Boot zurücksetzen</button>
+        </div>
+        <div id="instructions">
+            <strong>Steuerung:</strong><br>
+            • Maus: Kamera drehen/zoomen<br>
+            • WASD: Boot bewegen<br>
+            • Q/E: Boot drehen<br>
+            • R/F: Boot heben/senken
+        </div>
+    </div>
+    
+    <div id="loading">
+        <div class="loader"></div>
+        <div>Lade Simulation...</div>
+    </div>
+    
+    <script type="module" src="ocean.js"></script>
+</body>
+</html>
